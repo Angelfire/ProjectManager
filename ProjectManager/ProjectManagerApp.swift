@@ -13,7 +13,8 @@ struct ProjectManagerApp: App {
         WindowGroup {
             ContentView()
         }
-        .windowStyle(.hiddenTitleBar)
+        .windowStyle(.titleBar)
+        .windowToolbarStyle(.unified(showsTitle: true))
         .defaultSize(width: 920, height: 620)
     }
 }

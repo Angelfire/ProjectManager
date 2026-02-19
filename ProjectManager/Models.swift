@@ -5,7 +5,7 @@
 
 import Foundation
 
-enum ProjectType: String {
+enum ProjectType: String, Codable {
     case xcodeProject = "Xcode Project"
     case swiftPackage = "Swift Package"
     case nodeJS = "Node.js"
@@ -13,24 +13,63 @@ enum ProjectType: String {
     case bun = "Bun"
 }
 
-struct Project: Identifiable, Hashable {
-    let id = UUID()
+struct PlatformInfo: Codable, Hashable {
+    let name: String
+    let file: String
+}
+
+struct DependencyInfo: Codable, Hashable {
+    let name: String
+    let description: String
+}
+
+struct Project: Identifiable, Hashable, Codable {
+    let id: UUID
     let name: String
     let type: ProjectType
-    let icon: String // emoji or SF Symbol
+    let icon: String
     let path: String
     var isRunning: Bool = false
 
-    // Stats
-    let projectStarted: String
-    let totalCommits: Int
-    let contributors: Int
+    // Overview
+    let configFiles: [String]
+    let totalFiles: Int
+    let gitRemoteURL: String
+    let hasGit: Bool
 
     // Platform
-    let platforms: [(name: String, file: String)]
+    let platforms: [PlatformInfo]
 
     // Dependencies
-    let dependencies: [(name: String, description: String)]
+    let dependencies: [DependencyInfo]
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        type: ProjectType,
+        icon: String,
+        path: String,
+        isRunning: Bool = false,
+        configFiles: [String],
+        totalFiles: Int,
+        gitRemoteURL: String,
+        hasGit: Bool,
+        platforms: [PlatformInfo],
+        dependencies: [DependencyInfo]
+    ) {
+        self.id = id
+        self.name = name
+        self.type = type
+        self.icon = icon
+        self.path = path
+        self.isRunning = isRunning
+        self.configFiles = configFiles
+        self.totalFiles = totalFiles
+        self.gitRemoteURL = gitRemoteURL
+        self.hasGit = hasGit
+        self.platforms = platforms
+        self.dependencies = dependencies
+    }
 
     static func == (lhs: Project, rhs: Project) -> Bool {
         lhs.id == rhs.id
@@ -39,83 +78,10 @@ struct Project: Identifiable, Hashable {
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
-}
 
-struct AutoRunItem: Identifiable {
-    let id = UUID()
-    let name: String
-    let isStarred: Bool
-    let isRunning: Bool
-}
-
-// MARK: - Sample Data
-
-extension Project {
-    static let sampleProjects: [Project] = [
-        Project(
-            name: "shipyard",
-            type: .xcodeProject,
-            icon: "terminal",
-            path: "~/Developer/shipyard",
-            projectStarted: "2022-01-15",
-            totalCommits: 342,
-            contributors: 2,
-            platforms: [("Swift", "Package.swift")],
-            dependencies: []
-        ),
-        Project(
-            name: "iconfactory",
-            type: .swiftPackage,
-            icon: "flame",
-            path: "~/Developer/iconfactory",
-            projectStarted: "2021-06-20",
-            totalCommits: 128,
-            contributors: 1,
-            platforms: [("Swift", "Package.swift")],
-            dependencies: []
-        ),
-        Project(
-            name: "flaviocopes.com",
-            type: .nodeJS,
-            icon: "globe",
-            path: "~/www/flaviocopes.com",
-            projectStarted: "2017-08-03",
-            totalCommits: 4824,
-            contributors: 3,
-            platforms: [
-                ("Node.js", "package.json"),
-                ("TypeScript", "tsconfig.json")
-            ],
-            dependencies: [
-                ("@astrojs/mdx", "Add support for MDX pages in your Astr..."),
-                ("@astrojs/netlify", "Deploy your site to Netlify"),
-                ("@astrojs/rss", "Add RSS feeds to your Astro projects"),
-                ("@astrojs/sitemap", "Generate a sitemap for Astro site"),
-                ("@netlify/blobs", "TypeScript client for Netlify Blobs"),
-                ("@tailwindcss/typography", "A Tailwind CSS plugin for automatically...")
-            ]
-        ),
-        Project(
-            name: "thevalleyofcode.com",
-            type: .nodeJS,
-            icon: "globe",
-            path: "~/www/thevalleyofcode.com",
-            projectStarted: "2020-03-10",
-            totalCommits: 1520,
-            contributors: 2,
-            platforms: [("Node.js", "package.json")],
-            dependencies: []
-        ),
-        Project(
-            name: "bootcamp.dev",
-            type: .nodeJS,
-            icon: "globe",
-            path: "~/www/bootcamp.dev",
-            projectStarted: "2023-01-05",
-            totalCommits: 678,
-            contributors: 1,
-            platforms: [("Node.js", "package.json")],
-            dependencies: []
-        )
-    ]
+    enum CodingKeys: String, CodingKey {
+        case id, name, type, icon, path
+        case configFiles, totalFiles, gitRemoteURL, hasGit
+        case platforms, dependencies
+    }
 }

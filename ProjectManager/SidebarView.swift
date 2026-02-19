@@ -59,6 +59,7 @@ struct SidebarView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Projects")
                     .font(.caption)
+                    .font(.system(size: 14))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 12)
                     .padding(.top, 4)
