@@ -9,7 +9,7 @@ struct DetailHeaderView: View {
     let project: Project
     @Binding var selectedTab: String
 
-    private let tabs = ["Description", "Terminal", "Git"]
+    private let tabs = ["Description", "Terminal", "Git", "Health"]
 
     var body: some View {
         VStack(spacing: 0) {

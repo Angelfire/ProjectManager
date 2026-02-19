@@ -9,6 +9,7 @@ import UniformTypeIdentifiers
 struct SidebarView: View {
     @Binding var selectedProject: Project?
     var store: ProjectStore
+    var healthChecker: HealthChecker
     @State private var showFolderPicker = false
     @State private var searchText = ""
 
@@ -132,7 +133,11 @@ struct SidebarView: View {
                         Button {
                             selectedProject = project
                         } label: {
-                            SidebarProjectRow(project: project, isSelected: selectedProject?.id == project.id)
+                            SidebarProjectRow(
+                                project: project,
+                                isSelected: selectedProject?.id == project.id,
+                                healthLevel: healthChecker.health(for: project.id).isLoading ? nil : healthChecker.health(for: project.id).level
+                            )
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
@@ -227,6 +232,7 @@ struct SidebarView: View {
 struct SidebarProjectRow: View {
     let project: Project
     let isSelected: Bool
+    var healthLevel: HealthLevel?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -243,6 +249,12 @@ struct SidebarProjectRow: View {
             }
 
             Spacer()
+
+            if let level = healthLevel {
+                Circle()
+                    .fill(level == .good ? .green : level == .warning ? .yellow : .red)
+                    .frame(width: 7, height: 7)
+            }
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 12)

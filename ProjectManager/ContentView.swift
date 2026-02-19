@@ -11,13 +11,14 @@ struct ContentView: View {
     @State private var selectedProject: Project?
     @State private var store = ProjectStore()
     @State private var runner = ProcessRunner()
+    @State private var healthChecker = HealthChecker()
 
     var body: some View {
         NavigationSplitView {
-            SidebarView(selectedProject: $selectedProject, store: store)
+            SidebarView(selectedProject: $selectedProject, store: store, healthChecker: healthChecker)
         } detail: {
             if let project = selectedProject {
-                DetailView(project: project, runner: runner)
+                DetailView(project: project, runner: runner, healthChecker: healthChecker)
             } else {
                 Text("Select a project")
                     .font(.title2)
@@ -26,12 +27,18 @@ struct ContentView: View {
             }
         }
         .navigationSplitViewStyle(.prominentDetail)
+        .onChange(of: selectedProject) { _, newProject in
+            if let project = newProject, healthChecker.healthData[project.id] == nil {
+                Task { await healthChecker.refresh(project: project) }
+            }
+        }
     }
 }
 
 struct DetailView: View {
     let project: Project
     var runner: ProcessRunner
+    var healthChecker: HealthChecker
     @State private var selectedTab: String = "Description"
 
     private var isRunning: Bool {
@@ -53,6 +60,8 @@ struct DetailView: View {
                 TerminalView(project: project, runner: runner)
             case "Git":
                 GitView(project: project)
+            case "Health":
+                HealthView(project: project, checker: healthChecker)
             default:
                 Spacer()
                 Text("\(selectedTab) — Coming soon")
