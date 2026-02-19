@@ -9,15 +9,24 @@ import UniformTypeIdentifiers
 struct SidebarView: View {
     @Binding var selectedProject: Project?
     var store: ProjectStore
+    var runner: ProcessRunner
     var healthChecker: HealthChecker
     @State private var showFolderPicker = false
     @State private var searchText = ""
 
+    private var runningProjects: [Project] {
+        store.projects.filter { runner.isRunning($0.id) }
+    }
+
+    private var nonRunningProjects: [Project] {
+        store.projects.filter { !runner.isRunning($0.id) }
+    }
+
     private var filteredProjects: [Project] {
         if searchText.isEmpty {
-            return store.projects
+            return nonRunningProjects
         }
-        return store.projects.filter {
+        return nonRunningProjects.filter {
             $0.name.localizedCaseInsensitiveContains(searchText)
         }
     }
@@ -54,38 +63,61 @@ struct SidebarView: View {
             .padding(.horizontal, 10)
             .padding(.top, 10)
             .padding(.bottom, 6)
-            // Auto-run section (only shown when projects are running)
-            if !store.runningProjects.isEmpty {
+            // Running projects section
+            if !runningProjects.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Auto-run")
+                    Text("Running")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 12)
                         .padding(.top, 12)
 
-                    ForEach(store.runningProjects) { project in
-                        VStack(alignment: .leading, spacing: 0) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "display")
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(.blue)
-                                Text(project.name)
-                                    .font(.system(size: 13))
-                                Spacer()
-                            }
-                            .padding(.vertical, 6)
-                            .padding(.horizontal, 12)
-
-                            HStack(spacing: 4) {
+                    ForEach(runningProjects) { project in
+                        Button {
+                            selectedProject = project
+                        } label: {
+                            HStack(spacing: 8) {
                                 Circle()
                                     .fill(.green)
                                     .frame(width: 7, height: 7)
-                                Text("Running")
-                                    .font(.caption2)
-                                    .foregroundStyle(.green)
+
+                                Text(project.name)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(.white)
+
+                                Spacer()
+
+                                if let url = runner.detectedURL[project.id],
+                                    let port = URL(string: url)?.port
+                                {
+                                    Text(verbatim: ":\(port)")
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundStyle(.green.opacity(0.8))
+                                }
                             }
-                            .padding(.leading, 34)
-                            .padding(.bottom, 4)
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 12)
+                            .contentShape(.rect)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(
+                                        selectedProject?.id == project.id
+                                            ? Color.accentColor.opacity(0.7) : .clear)
+                            )
+                            .padding(.horizontal, 6)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button {
+                                openInFinder(project)
+                            } label: {
+                                Label("Show in Finder", systemImage: "folder")
+                            }
+                            Button {
+                                openInTerminal(project)
+                            } label: {
+                                Label("Open in Terminal", systemImage: "terminal")
+                            }
                         }
                     }
                 }
@@ -135,8 +167,7 @@ struct SidebarView: View {
                         } label: {
                             SidebarProjectRow(
                                 project: project,
-                                isSelected: selectedProject?.id == project.id,
-                                healthLevel: healthChecker.health(for: project.id).isLoading ? nil : healthChecker.health(for: project.id).level
+                                isSelected: selectedProject?.id == project.id
                             )
                         }
                         .buttonStyle(.plain)
@@ -217,11 +248,11 @@ struct SidebarView: View {
     private func openInTerminal(_ project: Project) {
         let path = (project.path as NSString).expandingTildeInPath
         let script = """
-        tell application "Terminal"
-            activate
-            do script "cd \\\"\(path)\\\""
-        end tell
-        """
+            tell application "Terminal"
+                activate
+                do script "cd \\\"\(path)\\\""
+            end tell
+            """
         if let appleScript = NSAppleScript(source: script) {
             var error: NSDictionary?
             appleScript.executeAndReturnError(&error)
@@ -232,7 +263,6 @@ struct SidebarView: View {
 struct SidebarProjectRow: View {
     let project: Project
     let isSelected: Bool
-    var healthLevel: HealthLevel?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -249,12 +279,6 @@ struct SidebarProjectRow: View {
             }
 
             Spacer()
-
-            if let level = healthLevel {
-                Circle()
-                    .fill(level == .good ? .green : level == .warning ? .yellow : .red)
-                    .frame(width: 7, height: 7)
-            }
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 12)

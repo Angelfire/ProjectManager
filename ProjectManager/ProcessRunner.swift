@@ -66,7 +66,7 @@ final class ProcessRunner {
             "\(home)/.deno/bin",
             "\(home)/.bun/bin",
             "/usr/bin",
-            "/bin"
+            "/bin",
         ]
         let currentPath = env["PATH"] ?? "/usr/bin:/bin"
         env["PATH"] = extraPaths.joined(separator: ":") + ":" + currentPath
@@ -74,9 +74,9 @@ final class ProcessRunner {
 
         // Make tools think they have a terminal (enables colored output)
         env["TERM"] = "xterm-256color"
-        env["FORCE_COLOR"] = "1"          // Node.js chalk/colors
-        env["CLICOLOR_FORCE"] = "1"       // BSD/macOS tools
-        env["NO_COLOR"] = nil              // Remove any NO_COLOR
+        env["FORCE_COLOR"] = "1"  // Node.js chalk/colors
+        env["CLICOLOR_FORCE"] = "1"  // BSD/macOS tools
+        env["NO_COLOR"] = nil  // Remove any NO_COLOR
         process.environment = env
 
         // Provide /dev/null for stdin so the shell doesn't wait for input
@@ -154,24 +154,98 @@ final class ProcessRunner {
         appendOutput(for: projectID, line: "⏹ Stopping process...")
 
         let pid = process.processIdentifier
+        let detectedPort = extractPort(from: detectedURL[projectID])
 
-        // Kill the entire process group (negative PID) so child processes
-        // like node/astro are killed too, freeing their ports
-        kill(-pid, SIGINT)
+        // 1. Kill the entire process tree recursively (SIGKILL immediately)
+        killProcessTree(pid: pid)
 
-        DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
-            if process.isRunning {
-                kill(-pid, SIGTERM)
-            }
-            DispatchQueue.global().asyncAfter(deadline: .now() + 1) {
-                if process.isRunning {
-                    kill(-pid, SIGKILL)
-                }
+        // 2. Terminate the zsh wrapper itself
+        if process.isRunning {
+            process.terminate()
+        }
+
+        // 3. Kill by port — this catches any orphaned node/astro processes
+        if let port = detectedPort {
+            killByPort(port: port)
+        }
+
+        // 4. Final sweep after delay (no weak self — just capture the values)
+        let capturedPort = detectedPort
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
+            // Re-kill tree in case anything respawned
+            kill(pid, SIGKILL)
+            kill(-pid, SIGKILL)
+            if let port = capturedPort {
+                // Use lsof directly — no self needed
+                let proc = Foundation.Process()
+                proc.executableURL = URL(fileURLWithPath: "/bin/zsh")
+                proc.arguments = ["-c", "lsof -ti :\(port) | xargs kill -9 2>/dev/null"]
+                proc.standardOutput = FileHandle.nullDevice
+                proc.standardError = FileHandle.nullDevice
+                try? proc.run()
+                proc.waitUntilExit()
             }
         }
+
         runningProcesses.removeValue(forKey: projectID)
         runningCommand.removeValue(forKey: projectID)
         detectedURL.removeValue(forKey: projectID)
+    }
+
+    /// Recursively kill a process and all its descendants with SIGKILL
+    private func killProcessTree(pid: pid_t) {
+        let childPIDs = getDescendantPIDs(of: pid)
+
+        // SIGKILL everything immediately — no graceful shutdown needed
+        for childPID in childPIDs.reversed() {
+            kill(childPID, SIGKILL)
+        }
+        kill(pid, SIGKILL)
+        kill(-pid, SIGKILL)
+    }
+
+    /// Get all descendant PIDs of a process using pgrep
+    private func getDescendantPIDs(of pid: pid_t) -> [pid_t] {
+        var allPIDs: [pid_t] = []
+        var queue: [pid_t] = [pid]
+
+        while !queue.isEmpty {
+            let currentPID = queue.removeFirst()
+            let proc = Foundation.Process()
+            proc.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
+            proc.arguments = ["-P", "\(currentPID)"]
+            let pipe = Pipe()
+            proc.standardOutput = pipe
+            proc.standardError = FileHandle.nullDevice
+            try? proc.run()
+            proc.waitUntilExit()
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                let childPIDs = output.split(separator: "\n").compactMap { pid_t($0) }
+                allPIDs.append(contentsOf: childPIDs)
+                queue.append(contentsOf: childPIDs)
+            }
+        }
+
+        return allPIDs
+    }
+
+    /// Kill any process listening on a specific port
+    private func killByPort(port: Int) {
+        let proc = Foundation.Process()
+        proc.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        proc.arguments = ["-c", "lsof -ti :\(port) | xargs kill -9 2>/dev/null"]
+        proc.standardOutput = FileHandle.nullDevice
+        proc.standardError = FileHandle.nullDevice
+        try? proc.run()
+        proc.waitUntilExit()
+    }
+
+    /// Extract port number from a URL string
+    private func extractPort(from urlString: String?) -> Int? {
+        guard let urlString, let url = URL(string: urlString) else { return nil }
+        return url.port
     }
 
     func stopAll() {
@@ -201,7 +275,8 @@ final class ProcessRunner {
     /// Detect common URL patterns from server output
     private func detectURL(in line: String, for projectID: UUID) {
         // Strip ANSI escape codes for reliable matching
-        let stripped = line
+        let stripped =
+            line
             .replacingOccurrences(
                 of: "\u{1B}\\[[0-9;]*[a-zA-Z]",
                 with: "",
@@ -216,7 +291,9 @@ final class ProcessRunner {
         let lower = stripped.lowercased()
 
         // Skip lines about ports being in use / busy / unavailable
-        if lower.contains("in use") || lower.contains("busy") || lower.contains("unavailable") || lower.contains("trying another") {
+        if lower.contains("in use") || lower.contains("busy") || lower.contains("unavailable")
+            || lower.contains("trying another")
+        {
             return
         }
 
@@ -238,7 +315,8 @@ final class ProcessRunner {
             if let range = stripped.range(of: portPattern, options: .regularExpression) {
                 // Skip if the line is about port conflicts
                 let match = String(stripped[range])
-                let digits = match.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+                let digits = match.components(separatedBy: CharacterSet.decimalDigits.inverted)
+                    .joined()
                 if let port = Int(digits), port > 0, port <= 65535 {
                     detectedURL[projectID] = "http://localhost:\(port)"
                 }
@@ -253,8 +331,9 @@ final class ProcessRunner {
         case .nodeJS:
             let pm = detectPackageManager(at: path)
             if let data = fm.contents(atPath: "\(path)/package.json"),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let scripts = json["scripts"] as? [String: String] {
+                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let scripts = json["scripts"] as? [String: String]
+            {
                 if scripts["dev"] != nil {
                     return "\(pm) run dev"
                 } else if scripts["start"] != nil {
@@ -264,10 +343,13 @@ final class ProcessRunner {
             return pm == "npm" ? "npm start" : "\(pm) run start"
 
         case .deno:
-            let denoConfig = fm.contents(atPath: "\(path)/deno.json") ?? fm.contents(atPath: "\(path)/deno.jsonc")
+            let denoConfig =
+                fm.contents(atPath: "\(path)/deno.json")
+                ?? fm.contents(atPath: "\(path)/deno.jsonc")
             if let data = denoConfig,
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let tasks = json["tasks"] as? [String: String] {
+                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let tasks = json["tasks"] as? [String: String]
+            {
                 if tasks["dev"] != nil {
                     return "deno task dev"
                 } else if tasks["start"] != nil {
@@ -284,8 +366,9 @@ final class ProcessRunner {
 
         case .bun:
             if let data = fm.contents(atPath: "\(path)/package.json"),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let scripts = json["scripts"] as? [String: String] {
+                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let scripts = json["scripts"] as? [String: String]
+            {
                 if scripts["dev"] != nil {
                     return "bun run dev"
                 } else if scripts["start"] != nil {
@@ -309,7 +392,9 @@ final class ProcessRunner {
             return "pnpm"
         } else if fm.fileExists(atPath: "\(path)/yarn.lock") {
             return "yarn"
-        } else if fm.fileExists(atPath: "\(path)/bun.lockb") || fm.fileExists(atPath: "\(path)/bun.lock") {
+        } else if fm.fileExists(atPath: "\(path)/bun.lockb")
+            || fm.fileExists(atPath: "\(path)/bun.lock")
+        {
             return "bun"
         }
         return "npm"

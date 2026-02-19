@@ -9,9 +9,17 @@ import SwiftUI
 
 @main
 struct ProjectManagerApp: App {
+    @State private var runner = ProcessRunner()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(runner: runner)
+                .onReceive(
+                    NotificationCenter.default.publisher(
+                        for: NSApplication.willTerminateNotification)
+                ) { _ in
+                    runner.stopAll()
+                }
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: true))
