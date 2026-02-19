@@ -51,6 +51,8 @@ struct DetailView: View {
                 DescriptionView(project: project)
             case "Terminal":
                 TerminalView(project: project, runner: runner)
+            case "Git":
+                GitView(project: project)
             default:
                 Spacer()
                 Text("\(selectedTab) — Coming soon")

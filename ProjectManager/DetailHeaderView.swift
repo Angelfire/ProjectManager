@@ -13,6 +13,23 @@ struct DetailHeaderView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Action buttons
+            HStack(spacing: 8) {
+                ActionButton(icon: "folder", label: "Finder", color: .blue) {
+                    openInApp("Finder")
+                }
+                ActionButton(icon: "chevron.left.forwardslash.chevron.right", label: "VSCode", color: .blue) {
+                    openInApp("VSCode")
+                }
+                ActionButton(icon: "cursorarrow.rays", label: "Cursor", color: .cyan) {
+                    openInApp("Cursor")
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
             // Tab bar
             HStack(spacing: 0) {
                 ForEach(tabs, id: \.self) { tab in
@@ -42,10 +59,42 @@ struct DetailHeaderView: View {
         }
     }
 
-    private func openInFinder() {
-        let expandedPath = project.path.replacingOccurrences(of: "~", with: NSHomeDirectory())
+    private var expandedPath: String {
+        project.path.replacingOccurrences(of: "~", with: NSHomeDirectory())
+    }
+
+    private func openInApp(_ appName: String) {
         let url = URL(fileURLWithPath: expandedPath)
-        NSWorkspace.shared.open(url)
+        if appName == "Finder" {
+            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: expandedPath)
+        } else {
+            let appURL: URL? = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID(for: appName))
+            if let appURL {
+                let config = NSWorkspace.OpenConfiguration()
+                NSWorkspace.shared.open([url], withApplicationAt: appURL, configuration: config)
+            }
+        }
+    }
+
+    private func openInTerminal() {
+        let script = """
+        tell application "Terminal"
+            activate
+            do script "cd \\\"\(expandedPath)\\\""
+        end tell
+        """
+        if let appleScript = NSAppleScript(source: script) {
+            var error: NSDictionary?
+            appleScript.executeAndReturnError(&error)
+        }
+    }
+
+    private func bundleID(for appName: String) -> String {
+        switch appName {
+        case "VSCode": return "com.microsoft.VSCode"
+        case "Cursor": return "com.todesktop.230313mzl4w4u92"
+        default: return ""
+        }
     }
 }
 
