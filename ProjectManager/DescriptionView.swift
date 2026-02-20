@@ -28,7 +28,7 @@ struct DescriptionView: View {
 private struct OverviewSection: View {
     let project: Project
 
-    var body: some View {
+    var body: some View {   
         VStack(alignment: .leading, spacing: 12) {
             Text("Overview")
                 .font(.system(size: 16, weight: .semibold))

@@ -313,6 +313,10 @@ struct SidebarProjectRow: View {
             Image(systemName: "takeoutbag.and.cup.and.straw.fill")
                 .font(.system(size: 12))
                 .foregroundStyle(.yellow)
+        case .web:
+            Image(systemName: "globe")
+                .font(.system(size: 12))
+                .foregroundStyle(.cyan)
         }
     }
 }

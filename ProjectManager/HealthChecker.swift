@@ -40,27 +40,34 @@ class HealthChecker {
 
     // MARK: - Heavy folder size
 
-    nonisolated private func detectHeavyFolderSync(at path: String, type: ProjectType) -> (name: String, size: String) {
+    nonisolated private func detectHeavyFolderSync(at path: String, type: ProjectType) -> (
+        name: String, size: String
+    ) {
         let folderName: String
         switch type {
         case .nodeJS, .bun, .deno:
             folderName = "node_modules"
         case .swiftPackage, .xcodeProject:
             folderName = ".build"
+        case .web:
+            folderName = "node_modules"
         }
 
         let fullPath = (path as NSString).appendingPathComponent(folderName)
         guard FileManager.default.fileExists(atPath: fullPath) else {
-            return (folderName, "Not found")
+            return (folderName, "")
         }
 
-        let size = shell("du -sh \"\(fullPath)\" | cut -f1").trimmingCharacters(in: .whitespacesAndNewlines)
+        let size = shell("du -sh \"\(fullPath)\" | cut -f1").trimmingCharacters(
+            in: .whitespacesAndNewlines)
         return (folderName, size.isEmpty ? "Unknown" : size)
     }
 
     // MARK: - Git status
 
-    nonisolated private func detectGitStatusSync(at path: String, hasGit: Bool) -> (unpushed: Int, modified: Int, untracked: Int) {
+    nonisolated private func detectGitStatusSync(at path: String, hasGit: Bool) -> (
+        unpushed: Int, modified: Int, untracked: Int
+    ) {
         guard hasGit else { return (0, 0, 0) }
 
         let unpushedStr = shell("cd \"\(path)\" && git rev-list --count @{u}..HEAD 2>/dev/null")
@@ -100,7 +107,7 @@ class HealthChecker {
             pnpmHome,
             "\(home)/.local/bin",
             "/usr/local/bin",
-            "/opt/homebrew/bin"
+            "/opt/homebrew/bin",
         ]
         let currentPath = env["PATH"] ?? "/usr/bin:/bin"
         env["PATH"] = (extraPaths + [currentPath]).joined(separator: ":")

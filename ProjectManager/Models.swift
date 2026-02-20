@@ -11,6 +11,7 @@ enum ProjectType: String, Codable {
     case nodeJS = "Node.js"
     case deno = "Deno"
     case bun = "Bun"
+    case web = "Web"
 }
 
 struct PlatformInfo: Codable, Hashable {

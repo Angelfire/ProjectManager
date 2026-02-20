@@ -38,7 +38,9 @@ struct HealthView: View {
                     }
 
                     // Heavy folder
-                    heavyFolderCard
+                    if !info.heavyFolderSize.isEmpty {
+                        heavyFolderCard
+                    }
                 }
                 .padding(20)
             }
@@ -87,8 +89,12 @@ struct HealthView: View {
                         Circle()
                             .fill(scoreColor)
                             .frame(width: 8, height: 8)
-                        Text(info.level == .good ? "Healthy" : info.level == .warning ? "Needs Attention" : "Critical")
-                            .font(.system(size: 14, weight: .semibold))
+                        Text(
+                            info.level == .good
+                                ? "Healthy"
+                                : info.level == .warning ? "Needs Attention" : "Critical"
+                        )
+                        .font(.system(size: 14, weight: .semibold))
                     }
                     Text(healthSummary)
                         .font(.system(size: 11))
@@ -116,13 +122,15 @@ struct HealthView: View {
     private var healthSummary: String {
         var parts: [String] = []
         if info.unpushedCommits > 0 {
-            parts.append("\(info.unpushedCommits) unpushed commit\(info.unpushedCommits == 1 ? "" : "s")")
+            parts.append(
+                "\(info.unpushedCommits) unpushed commit\(info.unpushedCommits == 1 ? "" : "s")")
         }
         if info.modifiedFiles > 0 {
             parts.append("\(info.modifiedFiles) modified file\(info.modifiedFiles == 1 ? "" : "s")")
         }
         if info.untrackedFiles > 0 {
-            parts.append("\(info.untrackedFiles) untracked file\(info.untrackedFiles == 1 ? "" : "s")")
+            parts.append(
+                "\(info.untrackedFiles) untracked file\(info.untrackedFiles == 1 ? "" : "s")")
         }
         if parts.isEmpty {
             parts.append("Everything looks good")
@@ -135,11 +143,19 @@ struct HealthView: View {
     private var gitStatusCard: some View {
         GroupBox {
             VStack(spacing: 10) {
-                statusRow(icon: "arrow.up.circle", label: "Unpushed Commits", value: "\(info.unpushedCommits)", color: info.unpushedCommits > 0 ? .orange : .green)
+                statusRow(
+                    icon: "arrow.up.circle", label: "Unpushed Commits",
+                    value: "\(info.unpushedCommits)",
+                    color: info.unpushedCommits > 0 ? .orange : .green)
                 Divider().opacity(0.3)
-                statusRow(icon: "pencil.circle", label: "Modified Files", value: "\(info.modifiedFiles)", color: info.modifiedFiles > 0 ? .yellow : .green)
+                statusRow(
+                    icon: "pencil.circle", label: "Modified Files", value: "\(info.modifiedFiles)",
+                    color: info.modifiedFiles > 0 ? .yellow : .green)
                 Divider().opacity(0.3)
-                statusRow(icon: "questionmark.circle", label: "Untracked Files", value: "\(info.untrackedFiles)", color: info.untrackedFiles > 0 ? .secondary : .green)
+                statusRow(
+                    icon: "questionmark.circle", label: "Untracked Files",
+                    value: "\(info.untrackedFiles)",
+                    color: info.untrackedFiles > 0 ? .secondary : .green)
             }
             .padding(4)
         } label: {
@@ -191,7 +207,9 @@ struct HealthView: View {
         let size = info.heavyFolderSize.lowercased()
         if size.contains("g") { return .red }
         if size.contains("m") {
-            if let num = Double(size.replacingOccurrences(of: "[^0-9.]", with: "", options: .regularExpression)) {
+            if let num = Double(
+                size.replacingOccurrences(of: "[^0-9.]", with: "", options: .regularExpression))
+            {
                 return num > 500 ? .orange : .secondary
             }
         }

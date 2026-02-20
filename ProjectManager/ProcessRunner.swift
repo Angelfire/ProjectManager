@@ -309,6 +309,21 @@ final class ProcessRunner {
             return
         }
 
+        // Match IPv6 URL patterns: http://[::]:PORT (python3 http.server output)
+        let ipv6Pattern = #"https?://\[[^\]]+\](:\d+)(?:/[^\s\)]*)?"#
+        if let range = stripped.range(of: ipv6Pattern, options: .regularExpression) {
+            let match = String(stripped[range])
+            // Extract port number from the matched URL
+            let portPattern2 = #":(\d{2,5})"#
+            if let portRange = match.range(of: portPattern2, options: .regularExpression) {
+                let portStr = String(match[portRange]).dropFirst()  // drop the ':'
+                if let port = Int(portStr), port > 0, port <= 65535 {
+                    detectedURL[projectID] = "http://localhost:\(port)"
+                    return
+                }
+            }
+        }
+
         // Match "port XXXX" or "PORT: XXXX" patterns (only if no URL found yet)
         if detectedURL[projectID] == nil {
             let portPattern = #"(?:port|PORT|Port)[:\s]+(\d{3,5})"#
@@ -382,6 +397,11 @@ final class ProcessRunner {
 
         case .xcodeProject:
             return "swift build"
+
+        case .web:
+            // Serve static files with Python's built-in HTTP server
+            // -u flag forces unbuffered stdout so output appears in real time
+            return "python3 -u -m http.server 8000"
         }
     }
 

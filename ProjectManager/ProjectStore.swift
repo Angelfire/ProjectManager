@@ -11,7 +11,9 @@ class ProjectStore {
     var projects: [Project] = []
 
     private static var saveURL: URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        ).first!
         let dir = appSupport.appendingPathComponent("ProjectManager", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("projects.json")
@@ -72,7 +74,8 @@ class ProjectStore {
 
     private func loadProjects() {
         guard let data = try? Data(contentsOf: Self.saveURL),
-              let saved = try? JSONDecoder().decode([Project].self, from: data) else {
+            let saved = try? JSONDecoder().decode([Project].self, from: data)
+        else {
             return
         }
         projects = saved
@@ -83,7 +86,8 @@ class ProjectStore {
         let contents = (try? fm.contentsOfDirectory(atPath: url.path)) ?? []
 
         // Swift detection
-        if contents.contains(where: { $0.hasSuffix(".xcodeproj") || $0.hasSuffix(".xcworkspace") }) {
+        if contents.contains(where: { $0.hasSuffix(".xcodeproj") || $0.hasSuffix(".xcworkspace") })
+        {
             return .xcodeProject
         }
         if contents.contains("Package.swift") {
@@ -96,13 +100,20 @@ class ProjectStore {
         }
 
         // Bun detection (bunfig.toml or bun.lockb)
-        if contents.contains("bunfig.toml") || contents.contains("bun.lockb") || contents.contains("bun.lock") {
+        if contents.contains("bunfig.toml") || contents.contains("bun.lockb")
+            || contents.contains("bun.lock")
+        {
             return .bun
         }
 
         // Node.js detection (package.json without Bun/Deno indicators)
         if contents.contains("package.json") {
             return .nodeJS
+        }
+
+        // Plain web project detection (HTML/CSS/JS without any framework)
+        if contents.contains(where: { $0.hasSuffix(".html") }) {
+            return .web
         }
 
         return .xcodeProject
@@ -126,7 +137,9 @@ class ProjectStore {
         // Node.js / Bun
         if contents.contains("package.json") {
             let runtime: String
-            if contents.contains("bunfig.toml") || contents.contains("bun.lockb") || contents.contains("bun.lock") {
+            if contents.contains("bunfig.toml") || contents.contains("bun.lockb")
+                || contents.contains("bun.lock")
+            {
                 runtime = "Bun"
             } else {
                 runtime = "Node.js"
@@ -146,6 +159,27 @@ class ProjectStore {
             platforms.append(PlatformInfo(name: "TypeScript", file: "tsconfig.json"))
         }
 
+        // Plain web (HTML/CSS/JS)
+        if contents.contains(where: { $0.hasSuffix(".html") }) {
+            let htmlFile =
+                contents.first(where: { $0 == "index.html" }) ?? contents.first(where: {
+                    $0.hasSuffix(".html")
+                }) ?? "index.html"
+            platforms.append(PlatformInfo(name: "HTML", file: htmlFile))
+        }
+        if contents.contains(where: { $0.hasSuffix(".css") }) {
+            platforms.append(
+                PlatformInfo(
+                    name: "CSS",
+                    file: contents.first(where: { $0.hasSuffix(".css") }) ?? "style.css"))
+        }
+        if contents.contains(where: { $0.hasSuffix(".js") }) {
+            platforms.append(
+                PlatformInfo(
+                    name: "JavaScript",
+                    file: contents.first(where: { $0.hasSuffix(".js") }) ?? "script.js"))
+        }
+
         return platforms
     }
 
@@ -161,7 +195,8 @@ class ProjectStore {
             "vite.config.ts", "vite.config.js", "next.config.js", "next.config.mjs",
             "astro.config.mjs", "astro.config.ts", "tailwind.config.js", "tailwind.config.ts",
             "postcss.config.js", "postcss.config.cjs", "webpack.config.js",
-            "rollup.config.js", ".gitignore", "README.md", "LICENSE"
+            "rollup.config.js", ".gitignore", "README.md", "LICENSE",
+            "index.html", "manifest.json", "robots.txt", "sitemap.xml", ".htaccess",
         ]
 
         return contents.filter { file in
