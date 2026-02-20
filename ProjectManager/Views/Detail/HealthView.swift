@@ -7,7 +7,7 @@ import SwiftUI
 
 struct HealthView: View {
     let project: Project
-    var checker: HealthChecker
+    let checker: HealthChecker
 
     private var info: HealthInfo {
         checker.health(for: project.id)

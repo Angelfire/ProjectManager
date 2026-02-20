@@ -10,7 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var selectedProject: Project?
     @State private var store = ProjectStore()
-    var runner: ProcessRunner
+    let runner: ProcessRunner
     @State private var healthChecker = HealthChecker()
 
     var body: some View {

@@ -7,7 +7,7 @@ import SwiftUI
 
 struct TerminalView: View {
     let project: Project
-    var runner: ProcessRunner
+    let runner: ProcessRunner
 
     private var lines: [String] {
         runner.output[project.id] ?? []

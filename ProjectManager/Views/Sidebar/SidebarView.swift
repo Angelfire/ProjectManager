@@ -8,9 +8,9 @@ import UniformTypeIdentifiers
 
 struct SidebarView: View {
     @Binding var selectedProject: Project?
-    var store: ProjectStore
-    var runner: ProcessRunner
-    var healthChecker: HealthChecker
+    let store: ProjectStore
+    let runner: ProcessRunner
+    let healthChecker: HealthChecker
     @State private var showFolderPicker = false
     @State private var searchText = ""
 
@@ -27,7 +27,7 @@ struct SidebarView: View {
             return nonRunningProjects
         }
         return nonRunningProjects.filter {
-            $0.name.localizedCaseInsensitiveContains(searchText)
+            $0.name.localizedStandardContains(searchText)
         }
     }
 
@@ -132,7 +132,6 @@ struct SidebarView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Projects")
                     .font(.caption)
-                    .font(.system(size: 14))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 12)
                     .padding(.top, 4)

@@ -81,19 +81,6 @@ struct DetailHeaderView: View {
         }
     }
 
-    private func openInTerminal() {
-        let script = """
-            tell application "Terminal"
-                activate
-                do script "cd \\\"\(expandedPath)\\\""
-            end tell
-            """
-        if let appleScript = NSAppleScript(source: script) {
-            var error: NSDictionary?
-            appleScript.executeAndReturnError(&error)
-        }
-    }
-
     private func bundleID(for appName: String) -> String {
         switch appName {
         case "VSCode": return "com.microsoft.VSCode"

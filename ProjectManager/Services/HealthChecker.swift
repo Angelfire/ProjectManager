@@ -7,7 +7,7 @@ import Foundation
 
 @MainActor
 @Observable
-class HealthChecker {
+final class HealthChecker {
     var healthData: [UUID: HealthInfo] = [:]
 
     func health(for id: UUID) -> HealthInfo {

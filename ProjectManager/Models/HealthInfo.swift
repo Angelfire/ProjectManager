@@ -39,7 +39,7 @@ struct HealthInfo {
 // MARK: - Git Commit
 
 struct GitCommit: Identifiable {
-    let id = UUID()
+    var id: String { shortHash }
     let shortHash: String
     let message: String
     let author: String

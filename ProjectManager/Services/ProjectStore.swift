@@ -7,7 +7,7 @@ import Foundation
 
 @MainActor
 @Observable
-class ProjectStore {
+final class ProjectStore {
     var projects: [Project] = []
 
     private static var saveURL: URL {

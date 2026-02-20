@@ -173,15 +173,23 @@ struct GitView: View {
 
     private func loadGitInfo() async {
         isLoading = true
-        defer { isLoading = false }
+        let path = expandedPath
 
-        currentBranch = runGit("rev-parse --abbrev-ref HEAD")
-        lastCommitMessage = runGit("log -1 --format=%s")
-        lastCommitAuthor = runGit("log -1 --format=%an")
-        lastCommitDate = runGit("log -1 --format=%ar")
+        let (branch, message, author, date, logOutput) = await Task.detached(
+            priority: .userInitiated
+        ) {
+            let branch = gitCommand("rev-parse --abbrev-ref HEAD", at: path)
+            let message = gitCommand("log -1 --format=%s", at: path)
+            let author = gitCommand("log -1 --format=%an", at: path)
+            let date = gitCommand("log -1 --format=%ar", at: path)
+            let logOutput = gitCommand("log --oneline -10 --format=%h||%s||%an||%ar", at: path)
+            return (branch, message, author, date, logOutput)
+        }.value
 
-        // Load recent commits
-        let logOutput = runGit("log --oneline -10 --format=%h||%s||%an||%ar")
+        currentBranch = branch
+        lastCommitMessage = message
+        lastCommitAuthor = author
+        lastCommitDate = date
         recentCommits =
             logOutput
             .components(separatedBy: "\n")
@@ -195,25 +203,28 @@ struct GitView: View {
                     relativeDate: parts.count > 3 ? parts[3] : ""
                 )
             }
+        isLoading = false
     }
+}
 
-    private func runGit(_ arguments: String) -> String {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        process.arguments = arguments.components(separatedBy: " ")
-        process.currentDirectoryURL = URL(fileURLWithPath: expandedPath)
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
+// MARK: - Git Shell Helper
 
-        do {
-            try process.run()
-            process.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            return (String(data: data, encoding: .utf8) ?? "").trimmingCharacters(
-                in: .whitespacesAndNewlines)
-        } catch {
-            return ""
-        }
+private nonisolated func gitCommand(_ arguments: String, at path: String) -> String {
+    let process = Process()
+    let pipe = Pipe()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+    process.arguments = arguments.components(separatedBy: " ")
+    process.currentDirectoryURL = URL(fileURLWithPath: path)
+    process.standardOutput = pipe
+    process.standardError = FileHandle.nullDevice
+
+    do {
+        try process.run()
+        process.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return (String(data: data, encoding: .utf8) ?? "").trimmingCharacters(
+            in: .whitespacesAndNewlines)
+    } catch {
+        return ""
     }
 }

@@ -7,8 +7,8 @@ import SwiftUI
 
 struct DetailView: View {
     let project: Project
-    var runner: ProcessRunner
-    var healthChecker: HealthChecker
+    let runner: ProcessRunner
+    let healthChecker: HealthChecker
     @State private var selectedTab: String = "Description"
 
     private var isRunning: Bool {
