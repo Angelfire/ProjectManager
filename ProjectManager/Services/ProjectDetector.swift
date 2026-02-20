@@ -1,91 +1,19 @@
 //
-//  ProjectStore.swift
+//  ProjectDetector.swift
 //  ProjectManager
 //
 
 import Foundation
 
-@MainActor
-@Observable
-class ProjectStore {
-    var projects: [Project] = []
+/// Detects project type, platforms, config files, and git info from a directory.
+enum ProjectDetector {
 
-    private static var saveURL: URL {
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask
-        ).first!
-        let dir = appSupport.appendingPathComponent("ProjectManager", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("projects.json")
-    }
+    // MARK: - Project Type
 
-    var runningProjects: [Project] {
-        projects.filter(\.isRunning)
-    }
+    static func detectType(at url: URL) -> ProjectType {
+        let contents = directoryContents(at: url)
 
-    init() {
-        loadProjects()
-    }
-
-    func addProject(from url: URL) {
-        // Avoid duplicates
-        let path = url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
-        guard !projects.contains(where: { $0.path == path }) else { return }
-
-        let name = url.lastPathComponent
-        let type = detectProjectType(at: url)
-        let platforms = detectPlatforms(at: url)
-        let configFiles = detectConfigFiles(at: url)
-        let totalFiles = countFiles(at: url)
-        let (hasGit, gitRemoteURL) = detectGitInfo(at: url)
-
-        let project = Project(
-            name: name,
-            type: type,
-            icon: "",
-            path: path,
-            configFiles: configFiles,
-            totalFiles: totalFiles,
-            gitRemoteURL: gitRemoteURL,
-            hasGit: hasGit,
-            platforms: platforms,
-            dependencies: []
-        )
-
-        projects.append(project)
-        saveProjects()
-    }
-
-    func removeProject(_ project: Project) {
-        projects.removeAll { $0.id == project.id }
-        saveProjects()
-    }
-
-    // MARK: - Persistence
-
-    private func saveProjects() {
-        do {
-            let data = try JSONEncoder().encode(projects)
-            try data.write(to: Self.saveURL, options: .atomic)
-        } catch {
-            // Save failed silently
-        }
-    }
-
-    private func loadProjects() {
-        guard let data = try? Data(contentsOf: Self.saveURL),
-            let saved = try? JSONDecoder().decode([Project].self, from: data)
-        else {
-            return
-        }
-        projects = saved
-    }
-
-    private func detectProjectType(at url: URL) -> ProjectType {
-        let fm = FileManager.default
-        let contents = (try? fm.contentsOfDirectory(atPath: url.path)) ?? []
-
-        // Swift detection
+        // Swift / Xcode
         if contents.contains(where: { $0.hasSuffix(".xcodeproj") || $0.hasSuffix(".xcworkspace") })
         {
             return .xcodeProject
@@ -94,24 +22,24 @@ class ProjectStore {
             return .swiftPackage
         }
 
-        // Deno detection (deno.json or deno.jsonc)
+        // Deno
         if contents.contains("deno.json") || contents.contains("deno.jsonc") {
             return .deno
         }
 
-        // Bun detection (bunfig.toml or bun.lockb)
+        // Bun
         if contents.contains("bunfig.toml") || contents.contains("bun.lockb")
             || contents.contains("bun.lock")
         {
             return .bun
         }
 
-        // Node.js detection (package.json without Bun/Deno indicators)
+        // Node.js
         if contents.contains("package.json") {
             return .nodeJS
         }
 
-        // Plain web project detection (HTML/CSS/JS without any framework)
+        // Plain web (HTML/CSS/JS without any framework)
         if contents.contains(where: { $0.hasSuffix(".html") }) {
             return .web
         }
@@ -119,19 +47,18 @@ class ProjectStore {
         return .xcodeProject
     }
 
-    private func detectPlatforms(at url: URL) -> [PlatformInfo] {
-        let fm = FileManager.default
-        let contents = (try? fm.contentsOfDirectory(atPath: url.path)) ?? []
+    // MARK: - Platforms
+
+    static func detectPlatforms(at url: URL) -> [PlatformInfo] {
+        let contents = directoryContents(at: url)
         var platforms: [PlatformInfo] = []
 
         // Swift
         if contents.contains("Package.swift") {
             platforms.append(PlatformInfo(name: "Swift", file: "Package.swift"))
         }
-        if contents.contains(where: { $0.hasSuffix(".xcodeproj") }) {
-            if let xcodeproj = contents.first(where: { $0.hasSuffix(".xcodeproj") }) {
-                platforms.append(PlatformInfo(name: "Xcode", file: xcodeproj))
-            }
+        if let xcodeproj = contents.first(where: { $0.hasSuffix(".xcodeproj") }) {
+            platforms.append(PlatformInfo(name: "Xcode", file: xcodeproj))
         }
 
         // Node.js / Bun
@@ -162,9 +89,9 @@ class ProjectStore {
         // Plain web (HTML/CSS/JS)
         if contents.contains(where: { $0.hasSuffix(".html") }) {
             let htmlFile =
-                contents.first(where: { $0 == "index.html" }) ?? contents.first(where: {
-                    $0.hasSuffix(".html")
-                }) ?? "index.html"
+                contents.first(where: { $0 == "index.html" })
+                ?? contents.first(where: { $0.hasSuffix(".html") })
+                ?? "index.html"
             platforms.append(PlatformInfo(name: "HTML", file: htmlFile))
         }
         if contents.contains(where: { $0.hasSuffix(".css") }) {
@@ -183,9 +110,10 @@ class ProjectStore {
         return platforms
     }
 
-    private func detectConfigFiles(at url: URL) -> [String] {
-        let fm = FileManager.default
-        let contents = (try? fm.contentsOfDirectory(atPath: url.path)) ?? []
+    // MARK: - Config Files
+
+    static func detectConfigFiles(at url: URL) -> [String] {
+        let contents = directoryContents(at: url)
 
         let knownConfigs = [
             "package.json", "tsconfig.json", "deno.json", "deno.jsonc",
@@ -204,17 +132,18 @@ class ProjectStore {
         }.sorted()
     }
 
-    private func countFiles(at url: URL) -> Int {
-        let fm = FileManager.default
-        let contents = (try? fm.contentsOfDirectory(atPath: url.path)) ?? []
-        return contents.count
+    // MARK: - File Count
+
+    static func countFiles(at url: URL) -> Int {
+        directoryContents(at: url).count
     }
 
-    private func detectGitInfo(at url: URL) -> (hasGit: Bool, remoteURL: String) {
-        let gitDir = url.appendingPathComponent(".git")
-        let fm = FileManager.default
+    // MARK: - Git Info
 
-        guard fm.fileExists(atPath: gitDir.path) else {
+    static func detectGitInfo(at url: URL) -> (hasGit: Bool, remoteURL: String) {
+        let gitDir = url.appendingPathComponent(".git")
+
+        guard FileManager.default.fileExists(atPath: gitDir.path) else {
             return (false, "")
         }
 
@@ -223,7 +152,6 @@ class ProjectStore {
             return (true, "")
         }
 
-        // Parse git remote URL from config
         let lines = configContent.components(separatedBy: .newlines)
         var inRemoteOrigin = false
         for line in lines {
@@ -243,5 +171,11 @@ class ProjectStore {
         }
 
         return (true, "")
+    }
+
+    // MARK: - Helper
+
+    private static func directoryContents(at url: URL) -> [String] {
+        (try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? []
     }
 }

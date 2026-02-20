@@ -28,7 +28,7 @@ struct DescriptionView: View {
 private struct OverviewSection: View {
     let project: Project
 
-    var body: some View {   
+    var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Overview")
                 .font(.system(size: 16, weight: .semibold))
@@ -107,7 +107,6 @@ private struct OverviewSection: View {
         if project.gitRemoteURL.isEmpty {
             return "Local repository"
         }
-        // Shorten URL for display
         return project.gitRemoteURL
             .replacingOccurrences(of: "https://github.com/", with: "")
             .replacingOccurrences(of: ".git", with: "")
@@ -226,11 +225,13 @@ private struct ConfigFilesSection: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white)
 
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 10),
-                GridItem(.flexible(), spacing: 10),
-                GridItem(.flexible(), spacing: 10)
-            ], spacing: 10) {
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10),
+                ], spacing: 10
+            ) {
                 ForEach(configFiles, id: \.self) { file in
                     ConfigFileCard(fileName: file)
                 }
@@ -259,7 +260,7 @@ private struct ConfigFileCard: View {
         case _ where fileName.hasPrefix(".env"):
             "lock.fill"
         case _ where fileName.hasSuffix(".mjs"), _ where fileName.hasSuffix(".js"),
-             _ where fileName.hasSuffix(".ts"), _ where fileName.hasSuffix(".cjs"):
+            _ where fileName.hasSuffix(".ts"), _ where fileName.hasSuffix(".cjs"):
             "doc.text.fill"
         default:
             "doc.fill"
@@ -281,7 +282,7 @@ private struct ConfigFileCard: View {
         case _ where fileName.hasPrefix(".env"):
             .red
         case _ where fileName.hasSuffix(".mjs"), _ where fileName.hasSuffix(".js"),
-             _ where fileName.hasSuffix(".ts"), _ where fileName.hasSuffix(".cjs"):
+            _ where fileName.hasSuffix(".ts"), _ where fileName.hasSuffix(".cjs"):
             .blue
         default:
             .gray

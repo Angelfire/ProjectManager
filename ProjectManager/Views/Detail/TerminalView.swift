@@ -208,7 +208,9 @@ private struct TerminalLine: View {
             return .red.opacity(0.9)
         } else if lower.contains("warn") {
             return .yellow.opacity(0.9)
-        } else if lower.contains("ready in") || lower.contains("listening") || lower.contains("started") {
+        } else if lower.contains("ready in") || lower.contains("listening")
+            || lower.contains("started")
+        {
             return .green.opacity(0.9)
         } else if lower.contains("http://") || lower.contains("https://") {
             return .cyan

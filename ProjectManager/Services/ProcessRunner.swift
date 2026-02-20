@@ -23,6 +23,8 @@ final class ProcessRunner {
         runningProcesses[projectID] != nil
     }
 
+    // MARK: - Run
+
     func run(project: Project) {
         guard !isRunning(project.id) else { return }
 
@@ -48,15 +50,11 @@ final class ProcessRunner {
 
         let process = Foundation.Process()
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        // Source .zshrc to load fnm/nvm/volta/pnpm PATH, then run the command
         let wrappedCommand = "source ~/.zshrc 2>/dev/null; \(command)"
         process.arguments = ["-c", wrappedCommand]
         process.currentDirectoryURL = dirURL
-
-        // Create a new process group so we can kill all children
         process.qualityOfService = .userInitiated
 
-        // Inherit current environment and add common tool paths
         var env = ProcessInfo.processInfo.environment
         let home = NSHomeDirectory()
         let extraPaths = [
@@ -71,28 +69,22 @@ final class ProcessRunner {
         let currentPath = env["PATH"] ?? "/usr/bin:/bin"
         env["PATH"] = extraPaths.joined(separator: ":") + ":" + currentPath
         env["PNPM_HOME"] = "\(home)/Library/pnpm"
-
-        // Make tools think they have a terminal (enables colored output)
         env["TERM"] = "xterm-256color"
-        env["FORCE_COLOR"] = "1"  // Node.js chalk/colors
-        env["CLICOLOR_FORCE"] = "1"  // BSD/macOS tools
-        env["NO_COLOR"] = nil  // Remove any NO_COLOR
+        env["FORCE_COLOR"] = "1"
+        env["CLICOLOR_FORCE"] = "1"
+        env["NO_COLOR"] = nil
         process.environment = env
 
-        // Provide /dev/null for stdin so the shell doesn't wait for input
         process.standardInput = FileHandle.nullDevice
 
-        // Capture stdout
         let stdoutPipe = Pipe()
         process.standardOutput = stdoutPipe
 
-        // Capture stderr (Astro, Vite, Next.js often write here)
         let stderrPipe = Pipe()
         process.standardError = stderrPipe
 
         let projectID = project.id
 
-        // Read stdout asynchronously
         stdoutPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty else { return }
@@ -107,7 +99,6 @@ final class ProcessRunner {
             }
         }
 
-        // Read stderr asynchronously
         stderrPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty else { return }
@@ -123,7 +114,6 @@ final class ProcessRunner {
         }
 
         process.terminationHandler = { [weak self] proc in
-            // Close pipe handlers
             stdoutPipe.fileHandleForReading.readabilityHandler = nil
             stderrPipe.fileHandleForReading.readabilityHandler = nil
 
@@ -138,8 +128,6 @@ final class ProcessRunner {
 
         do {
             try process.run()
-            // Make the process its own process group leader
-            // so kill(-pid) kills all children too
             let pid = process.processIdentifier
             setpgid(pid, pid)
             runningProcesses[projectID] = process
@@ -147,6 +135,8 @@ final class ProcessRunner {
             appendOutput(for: projectID, line: "⚠ Failed to start: \(error.localizedDescription)")
         }
     }
+
+    // MARK: - Stop
 
     func stop(projectID: UUID) {
         guard let process = runningProcesses[projectID] else { return }
@@ -156,27 +146,21 @@ final class ProcessRunner {
         let pid = process.processIdentifier
         let detectedPort = extractPort(from: detectedURL[projectID])
 
-        // 1. Kill the entire process tree recursively (SIGKILL immediately)
         killProcessTree(pid: pid)
 
-        // 2. Terminate the zsh wrapper itself
         if process.isRunning {
             process.terminate()
         }
 
-        // 3. Kill by port — this catches any orphaned node/astro processes
         if let port = detectedPort {
             killByPort(port: port)
         }
 
-        // 4. Final sweep after delay (no weak self — just capture the values)
         let capturedPort = detectedPort
         DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
-            // Re-kill tree in case anything respawned
             kill(pid, SIGKILL)
             kill(-pid, SIGKILL)
             if let port = capturedPort {
-                // Use lsof directly — no self needed
                 let proc = Foundation.Process()
                 proc.executableURL = URL(fileURLWithPath: "/bin/zsh")
                 proc.arguments = ["-c", "lsof -ti :\(port) | xargs kill -9 2>/dev/null"]
@@ -192,11 +176,21 @@ final class ProcessRunner {
         detectedURL.removeValue(forKey: projectID)
     }
 
-    /// Recursively kill a process and all its descendants with SIGKILL
+    func stopAll() {
+        for (id, _) in runningProcesses {
+            stop(projectID: id)
+        }
+    }
+
+    func clearOutput(for projectID: UUID) {
+        output[projectID] = []
+        detectedURL[projectID] = nil
+    }
+
+    // MARK: - Process Tree Management
+
     private func killProcessTree(pid: pid_t) {
         let childPIDs = getDescendantPIDs(of: pid)
-
-        // SIGKILL everything immediately — no graceful shutdown needed
         for childPID in childPIDs.reversed() {
             kill(childPID, SIGKILL)
         }
@@ -204,7 +198,6 @@ final class ProcessRunner {
         kill(-pid, SIGKILL)
     }
 
-    /// Get all descendant PIDs of a process using pgrep
     private func getDescendantPIDs(of pid: pid_t) -> [pid_t] {
         var allPIDs: [pid_t] = []
         var queue: [pid_t] = [pid]
@@ -231,7 +224,6 @@ final class ProcessRunner {
         return allPIDs
     }
 
-    /// Kill any process listening on a specific port
     private func killByPort(port: Int) {
         let proc = Foundation.Process()
         proc.executableURL = URL(fileURLWithPath: "/bin/zsh")
@@ -242,39 +234,26 @@ final class ProcessRunner {
         proc.waitUntilExit()
     }
 
-    /// Extract port number from a URL string
     private func extractPort(from urlString: String?) -> Int? {
         guard let urlString, let url = URL(string: urlString) else { return nil }
         return url.port
     }
 
-    func stopAll() {
-        for (id, _) in runningProcesses {
-            stop(projectID: id)
-        }
-    }
-
-    func clearOutput(for projectID: UUID) {
-        output[projectID] = []
-        detectedURL[projectID] = nil
-    }
-
-    // MARK: - Private
+    // MARK: - Output
 
     private func appendOutput(for projectID: UUID, line: String) {
         if output[projectID] == nil {
             output[projectID] = []
         }
         output[projectID]?.append(line)
-        // Cap at 1000 lines to avoid memory issues
         if let count = output[projectID]?.count, count > 1000 {
             output[projectID]?.removeFirst(count - 1000)
         }
     }
 
-    /// Detect common URL patterns from server output
+    // MARK: - URL Detection
+
     private func detectURL(in line: String, for projectID: UUID) {
-        // Strip ANSI escape codes for reliable matching
         let stripped =
             line
             .replacingOccurrences(
@@ -290,33 +269,29 @@ final class ProcessRunner {
 
         let lower = stripped.lowercased()
 
-        // Skip lines about ports being in use / busy / unavailable
         if lower.contains("in use") || lower.contains("busy") || lower.contains("unavailable")
             || lower.contains("trying another")
         {
             return
         }
 
-        // Match explicit URL patterns: http://localhost:PORT, http://127.0.0.1:PORT, http://0.0.0.0:PORT
+        // http://localhost:PORT, http://127.0.0.1:PORT, http://0.0.0.0:PORT
         let urlPattern = #"https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)(?:/[^\s]*)?"#
         if let range = stripped.range(of: urlPattern, options: .regularExpression) {
             var url = String(stripped[range])
-            // Normalize 0.0.0.0 to localhost
             url = url.replacingOccurrences(of: "0.0.0.0", with: "localhost")
             url = url.replacingOccurrences(of: "127.0.0.1", with: "localhost")
-            // Always update — later URLs are more accurate (e.g. after port fallback)
             detectedURL[projectID] = url
             return
         }
 
-        // Match IPv6 URL patterns: http://[::]:PORT (python3 http.server output)
+        // IPv6: http://[::]:PORT (python3 http.server)
         let ipv6Pattern = #"https?://\[[^\]]+\](:\d+)(?:/[^\s\)]*)?"#
         if let range = stripped.range(of: ipv6Pattern, options: .regularExpression) {
             let match = String(stripped[range])
-            // Extract port number from the matched URL
             let portPattern2 = #":(\d{2,5})"#
             if let portRange = match.range(of: portPattern2, options: .regularExpression) {
-                let portStr = String(match[portRange]).dropFirst()  // drop the ':'
+                let portStr = String(match[portRange]).dropFirst()
                 if let port = Int(portStr), port > 0, port <= 65535 {
                     detectedURL[projectID] = "http://localhost:\(port)"
                     return
@@ -324,11 +299,10 @@ final class ProcessRunner {
             }
         }
 
-        // Match "port XXXX" or "PORT: XXXX" patterns (only if no URL found yet)
+        // "port XXXX" pattern
         if detectedURL[projectID] == nil {
             let portPattern = #"(?:port|PORT|Port)[:\s]+(\d{3,5})"#
             if let range = stripped.range(of: portPattern, options: .regularExpression) {
-                // Skip if the line is about port conflicts
                 let match = String(stripped[range])
                 let digits = match.components(separatedBy: CharacterSet.decimalDigits.inverted)
                     .joined()
@@ -338,6 +312,8 @@ final class ProcessRunner {
             }
         }
     }
+
+    // MARK: - Run Command Resolution
 
     private func runCommand(for project: Project, at path: String) -> String? {
         let fm = FileManager.default
@@ -399,13 +375,10 @@ final class ProcessRunner {
             return "swift build"
 
         case .web:
-            // Serve static files with Python's built-in HTTP server
-            // -u flag forces unbuffered stdout so output appears in real time
             return "python3 -u -m http.server 8000"
         }
     }
 
-    /// Detect package manager by lock file presence
     private func detectPackageManager(at path: String) -> String {
         let fm = FileManager.default
         if fm.fileExists(atPath: "\(path)/pnpm-lock.yaml") {

@@ -21,7 +21,6 @@ class HealthChecker {
         let type = project.type
         let hasGit = project.hasGit
 
-        // Run all detection off the main thread to avoid blocking UI
         let result = await Task.detached { () -> HealthInfo in
             let folder = self.detectHeavyFolderSync(at: path, type: type)
             let git = self.detectGitStatusSync(at: path, hasGit: hasGit)
@@ -38,7 +37,7 @@ class HealthChecker {
         healthData[project.id] = result
     }
 
-    // MARK: - Heavy folder size
+    // MARK: - Heavy Folder Size
 
     nonisolated private func detectHeavyFolderSync(at path: String, type: ProjectType) -> (
         name: String, size: String
@@ -63,7 +62,7 @@ class HealthChecker {
         return (folderName, size.isEmpty ? "Unknown" : size)
     }
 
-    // MARK: - Git status
+    // MARK: - Git Status
 
     nonisolated private func detectGitStatusSync(at path: String, hasGit: Bool) -> (
         unpushed: Int, modified: Int, untracked: Int
@@ -89,7 +88,7 @@ class HealthChecker {
         return (unpushed, modified, untracked)
     }
 
-    // MARK: - Shell helper
+    // MARK: - Shell Helper
 
     nonisolated private func shell(_ command: String) -> String {
         let process = Process()
@@ -99,7 +98,6 @@ class HealthChecker {
         process.standardOutput = outPipe
         process.standardError = FileHandle.nullDevice
 
-        // Ensure pnpm/fnm/node are on PATH
         var env = ProcessInfo.processInfo.environment
         let home = env["HOME"] ?? NSHomeDirectory()
         let pnpmHome = "\(home)/Library/pnpm"

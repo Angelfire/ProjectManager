@@ -260,6 +260,8 @@ struct SidebarView: View {
     }
 }
 
+// MARK: - Sidebar Project Row
+
 struct SidebarProjectRow: View {
     let project: Project
     let isSelected: Bool

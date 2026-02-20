@@ -27,9 +27,14 @@ struct GitView: View {
                     // Branch & Remote
                     GroupBox {
                         VStack(alignment: .leading, spacing: 12) {
-                            infoRow(icon: "arrow.triangle.branch", label: "Branch", value: currentBranch, color: .green)
+                            infoRow(
+                                icon: "arrow.triangle.branch", label: "Branch",
+                                value: currentBranch, color: .green)
                             Divider().opacity(0.3)
-                            infoRow(icon: "link", label: "Remote", value: project.gitRemoteURL.isEmpty ? "No remote" : project.gitRemoteURL, color: .blue)
+                            infoRow(
+                                icon: "link", label: "Remote",
+                                value: project.gitRemoteURL.isEmpty
+                                    ? "No remote" : project.gitRemoteURL, color: .blue)
                         }
                         .padding(4)
                     } label: {
@@ -177,7 +182,8 @@ struct GitView: View {
 
         // Load recent commits
         let logOutput = runGit("log --oneline -10 --format=%h||%s||%an||%ar")
-        recentCommits = logOutput
+        recentCommits =
+            logOutput
             .components(separatedBy: "\n")
             .filter { !$0.isEmpty }
             .map { line in
@@ -204,17 +210,10 @@ struct GitView: View {
             try process.run()
             process.waitUntilExit()
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            return (String(data: data, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return (String(data: data, encoding: .utf8) ?? "").trimmingCharacters(
+                in: .whitespacesAndNewlines)
         } catch {
             return ""
         }
     }
-}
-
-struct GitCommit: Identifiable {
-    let id = UUID()
-    let shortHash: String
-    let message: String
-    let author: String
-    let relativeDate: String
 }

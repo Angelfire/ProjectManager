@@ -1,9 +1,11 @@
 //
-//  Models.swift
+//  Project.swift
 //  ProjectManager
 //
 
 import Foundation
+
+// MARK: - Project Type
 
 enum ProjectType: String, Codable {
     case xcodeProject = "Xcode Project"
@@ -13,6 +15,8 @@ enum ProjectType: String, Codable {
     case bun = "Bun"
     case web = "Web"
 }
+
+// MARK: - Supporting Types
 
 struct PlatformInfo: Codable, Hashable {
     let name: String
@@ -24,34 +28,7 @@ struct DependencyInfo: Codable, Hashable {
     let description: String
 }
 
-// MARK: - Health
-
-enum HealthLevel: String {
-    case good, warning, critical
-}
-
-struct HealthInfo {
-    var heavyFolderSize: String = "—"
-    var heavyFolderName: String = ""
-    var unpushedCommits: Int = 0
-    var untrackedFiles: Int = 0
-    var modifiedFiles: Int = 0
-    var isLoading: Bool = true
-
-    var level: HealthLevel {
-        if unpushedCommits > 10 { return .critical }
-        if unpushedCommits > 0 || modifiedFiles > 3 { return .warning }
-        return .good
-    }
-
-    var score: Int {
-        var s = 100
-        s -= unpushedCommits * 3
-        s -= modifiedFiles * 2
-        s -= untrackedFiles
-        return max(0, min(100, s))
-    }
-}
+// MARK: - Project
 
 struct Project: Identifiable, Hashable, Codable {
     let id: UUID
