@@ -1,13 +1,33 @@
 # ProjectManager
 
-A macOS app to manage and quickly access your local development projects.
+A native macOS app to manage, run, and monitor your local development projects — all from one place.
+
+Built with SwiftUI for macOS 15.7+.
+
+![Swift](https://img.shields.io/badge/Swift-6.2-orange?logo=swift)
+![Platform](https://img.shields.io/badge/Platform-macOS-blue?logo=apple)
+![License](https://img.shields.io/badge/License-MIT-green)
 
 ## Features
 
-- Add existing project folders from anywhere on your system
-- Auto-detects project type (Xcode, Swift Package, Node.js, Deno, Bun)
-- Open projects in Finder with one click
-- See detected platforms and dependencies at a glance
+- **Auto-detection** of project types: Xcode, Swift Package, Node.js, Deno, Bun, and plain Web (HTML/CSS/JS)
+- **Run projects** directly from the app with integrated terminal output
+- **Server URL detection** — automatically detects the local server URL and lets you open it in your browser
+- **Git status** overview: unpushed commits, modified and untracked files
+- **Health score** for each project based on Git status and disk usage
+- Open projects in **Finder**, **VS Code**, or **Cursor** with one click
+- Search and filter across all your projects
+
+## Supported Project Types
+
+| Type | Detection | Run Command |
+|------|-----------|-------------|
+| Xcode Project | `.xcodeproj` / `.xcworkspace` | `swift build` |
+| Swift Package | `Package.swift` | `swift run` |
+| Node.js | `package.json` | `npm/pnpm/yarn run dev` |
+| Deno | `deno.json` / `deno.jsonc` | `deno task dev` |
+| Bun | `bunfig.toml` / `bun.lockb` | `bun run dev` |
+| Web | `.html` files (no framework) | `python3 -u -m http.server 8000` |
 
 ## Requirements
 
@@ -21,3 +41,11 @@ Open `ProjectManager.xcodeproj` in Xcode and run, or:
 ```bash
 xcodebuild -scheme ProjectManager build
 ```
+
+## Author
+
+**Andrés Bedoya G.**
+
+## License
+
+This project is licensed under the [MIT License](LICENSE). You are free to use, modify, and distribute it.
