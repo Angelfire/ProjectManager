@@ -8,8 +8,6 @@ import Foundation
 // MARK: - Project Type
 
 enum ProjectType: String, Codable {
-    case xcodeProject = "Xcode Project"
-    case swiftPackage = "Swift Package"
     case nodeJS = "Node.js"
     case deno = "Deno"
     case bun = "Bun"

@@ -10,17 +10,8 @@ enum ProjectDetector {
 
     // MARK: - Project Type
 
-    static func detectType(at url: URL) -> ProjectType {
+    static func detectType(at url: URL) -> ProjectType? {
         let contents = directoryContents(at: url)
-
-        // Swift / Xcode
-        if contents.contains(where: { $0.hasSuffix(".xcodeproj") || $0.hasSuffix(".xcworkspace") })
-        {
-            return .xcodeProject
-        }
-        if contents.contains("Package.swift") {
-            return .swiftPackage
-        }
 
         // Deno
         if contents.contains("deno.json") || contents.contains("deno.jsonc") {
@@ -44,7 +35,7 @@ enum ProjectDetector {
             return .web
         }
 
-        return .xcodeProject
+        return nil
     }
 
     // MARK: - Platforms
@@ -52,14 +43,6 @@ enum ProjectDetector {
     static func detectPlatforms(at url: URL) -> [PlatformInfo] {
         let contents = directoryContents(at: url)
         var platforms: [PlatformInfo] = []
-
-        // Swift
-        if contents.contains("Package.swift") {
-            platforms.append(PlatformInfo(name: "Swift", file: "Package.swift"))
-        }
-        if let xcodeproj = contents.first(where: { $0.hasSuffix(".xcodeproj") }) {
-            platforms.append(PlatformInfo(name: "Xcode", file: xcodeproj))
-        }
 
         // Node.js / Bun
         if contents.contains("package.json") {
@@ -117,7 +100,7 @@ enum ProjectDetector {
 
         let knownConfigs = [
             "package.json", "tsconfig.json", "deno.json", "deno.jsonc",
-            "bunfig.toml", "Package.swift", ".env", ".env.local",
+            "bunfig.toml", ".env", ".env.local",
             "Makefile", "Dockerfile", "docker-compose.yml", "docker-compose.yaml",
             ".eslintrc.json", ".eslintrc.js", ".prettierrc", ".prettierrc.json",
             "vite.config.ts", "vite.config.js", "next.config.js", "next.config.mjs",
@@ -128,7 +111,7 @@ enum ProjectDetector {
         ]
 
         return contents.filter { file in
-            knownConfigs.contains(file) || file.hasSuffix(".xcodeproj")
+            knownConfigs.contains(file)
         }.sorted()
     }
 

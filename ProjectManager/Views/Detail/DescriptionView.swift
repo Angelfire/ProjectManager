@@ -344,8 +344,6 @@ private struct PlatformCard: View {
         case "TypeScript": "doc.text.fill"
         case "Deno": "lizard.fill"
         case "Bun": "takeoutbag.and.cup.and.straw.fill"
-        case "Swift": "swift"
-        case "Xcode": "hammer.fill"
         default: "questionmark.square"
         }
     }
@@ -356,8 +354,6 @@ private struct PlatformCard: View {
         case "TypeScript": .blue
         case "Deno": .white
         case "Bun": .yellow
-        case "Swift": .orange
-        case "Xcode": .blue
         default: .gray
         }
     }

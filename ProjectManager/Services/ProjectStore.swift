@@ -29,12 +29,19 @@ final class ProjectStore {
 
     // MARK: - Public API
 
-    func addProject(from url: URL) {
+    enum AddResult {
+        case success
+        case alreadyExists
+        case unsupportedType
+    }
+
+    @discardableResult
+    func addProject(from url: URL) -> AddResult {
         let path = url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
-        guard !projects.contains(where: { $0.path == path }) else { return }
+        guard !projects.contains(where: { $0.path == path }) else { return .alreadyExists }
 
         let name = url.lastPathComponent
-        let type = ProjectDetector.detectType(at: url)
+        guard let type = ProjectDetector.detectType(at: url) else { return .unsupportedType }
         let platforms = ProjectDetector.detectPlatforms(at: url)
         let configFiles = ProjectDetector.detectConfigFiles(at: url)
         let totalFiles = ProjectDetector.countFiles(at: url)
@@ -55,6 +62,7 @@ final class ProjectStore {
 
         projects.append(project)
         saveProjects()
+        return .success
     }
 
     func removeProject(_ project: Project) {

@@ -368,12 +368,6 @@ final class ProcessRunner {
             }
             return "bun start"
 
-        case .swiftPackage:
-            return "swift run"
-
-        case .xcodeProject:
-            return "swift build"
-
         case .web:
             return "python3 -u -m http.server 8000"
         }

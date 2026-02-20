@@ -13,6 +13,8 @@ struct SidebarView: View {
     let healthChecker: HealthChecker
     @State private var showFolderPicker = false
     @State private var searchText = ""
+    @State private var showUnsupportedAlert = false
+    @State private var unsupportedFolderName = ""
 
     private var runningProjects: [Project] {
         store.projects.filter { runner.isRunning($0.id) }
@@ -231,11 +233,22 @@ struct SidebarView: View {
             switch result {
             case .success(let urls):
                 if let url = urls.first {
-                    store.addProject(from: url)
+                    let addResult = store.addProject(from: url)
+                    if addResult == .unsupportedType {
+                        unsupportedFolderName = url.lastPathComponent
+                        showUnsupportedAlert = true
+                    }
                 }
             case .failure:
                 break
             }
+        }
+        .alert("Unsupported Project", isPresented: $showUnsupportedAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(
+                "\"\(unsupportedFolderName)\" is not a supported web project.\n\nOnly Node.js, Deno, Bun, and HTML/CSS/JS projects can be added."
+            )
         }
     }
 
@@ -294,14 +307,6 @@ struct SidebarProjectRow: View {
     @ViewBuilder
     private var projectIcon: some View {
         switch project.type {
-        case .xcodeProject:
-            Image(systemName: "hammer.fill")
-                .font(.system(size: 12))
-                .foregroundStyle(.blue)
-        case .swiftPackage:
-            Image(systemName: "swift")
-                .font(.system(size: 12))
-                .foregroundStyle(.orange)
         case .nodeJS:
             Image(systemName: "shippingbox.fill")
                 .font(.system(size: 13))

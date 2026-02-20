@@ -44,11 +44,7 @@ final class HealthChecker {
     ) {
         let folderName: String
         switch type {
-        case .nodeJS, .bun, .deno:
-            folderName = "node_modules"
-        case .swiftPackage, .xcodeProject:
-            folderName = ".build"
-        case .web:
+        case .nodeJS, .bun, .deno, .web:
             folderName = "node_modules"
         }
 
