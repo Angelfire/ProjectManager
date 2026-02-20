@@ -1,6 +1,6 @@
 # ProjectManager
 
-A native macOS app to manage, run, and monitor your local development projects — all from one place.
+A native macOS app to manage, run, and monitor your local web development projects — all from one place.
 
 Built with SwiftUI for macOS 15.7+.
 
@@ -10,23 +10,22 @@ Built with SwiftUI for macOS 15.7+.
 
 ## Features
 
-- **Auto-detection** of project types: Xcode, Swift Package, Node.js, Deno, Bun, and plain Web (HTML/CSS/JS)
+- **Auto-detection** of project types: Node.js, Deno, Bun, and plain Web (HTML/CSS/JS)
 - **Run projects** directly from the app with integrated terminal output
 - **Server URL detection** — automatically detects the local server URL and lets you open it in your browser
-- **Git status** overview: unpushed commits, modified and untracked files
+- **Git status** overview: current branch, recent commits, unpushed commits, modified and untracked files
 - **Health score** for each project based on Git status and disk usage
 - Open projects in **Finder**, **VS Code**, or **Cursor** with one click
 - Search and filter across all your projects
+- **Unsupported project alert** — clear feedback when a non-web project folder is added
 
 ## Supported Project Types
 
 | Type | Detection | Run Command |
 |------|-----------|-------------|
-| Xcode Project | `.xcodeproj` / `.xcworkspace` | `swift build` |
-| Swift Package | `Package.swift` | `swift run` |
 | Node.js | `package.json` | `npm/pnpm/yarn run dev` |
 | Deno | `deno.json` / `deno.jsonc` | `deno task dev` |
-| Bun | `bunfig.toml` / `bun.lockb` | `bun run dev` |
+| Bun | `bunfig.toml` / `bun.lockb` / `bun.lock` | `bun run dev` |
 | Web | `.html` files (no framework) | `python3 -u -m http.server 8000` |
 
 ## Requirements
