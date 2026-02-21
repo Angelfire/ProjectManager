@@ -23,6 +23,6 @@ struct ProjectManagerApp: App {
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: true))
-        .defaultSize(width: 920, height: 620)
+        .defaultSize(width: 1100, height: 750)
     }
 }
